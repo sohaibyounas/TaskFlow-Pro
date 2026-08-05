@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   taskFormSchema,
@@ -30,7 +30,7 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
     reset,
     formState: { errors },
   } = useForm<TaskFormValues>({
-    resolver: zodResolver(taskFormSchema),
+    resolver: zodResolver(taskFormSchema) as any,
     defaultValues: task
       ? {
           title: task.title,
@@ -39,7 +39,7 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
           priority: task.priority,
           assigneeId: task.assignee?.id ?? null,
           dueDate: task.dueDate,
-          tags: task.tags,
+          tags: task.tags ?? [],
         }
       : {
           title: "",
@@ -62,12 +62,12 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
         priority: task.priority,
         assigneeId: task.assignee?.id ?? null,
         dueDate: task.dueDate,
-        tags: task.tags,
+        tags: task.tags ?? [],
       });
     }
   }, [task?.id]);
 
-  function onSubmit(values: TaskFormValues) {
+  const onSubmit: SubmitHandler<TaskFormValues> = (values) => {
     if (isEditMode) {
       // UPDATE path
       updateTaskMutation.mutate(

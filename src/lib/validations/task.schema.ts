@@ -33,6 +33,7 @@ export const taskFormSchema = z.object({
   tags: z
     .array(z.string())
     .max(5, "Zyada se zyada 5 tags allowed hain")
+    .optional()
     .default([]),
 });
 
