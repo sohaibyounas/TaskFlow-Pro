@@ -55,7 +55,7 @@ export default function LoginPage() {
         className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow"
       >
         <h1 className="text-xl font-semibold text-[#232323]">
-          TaskFlow Pro — Login
+          TaskFlow Pro
         </h1>
 
         <div>
