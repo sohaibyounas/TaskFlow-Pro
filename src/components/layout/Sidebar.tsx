@@ -1,13 +1,20 @@
 "use client";
 
+import {
+  Flower,
+  Kanban,
+  LayoutDashboard,
+  ListTodo,
+  Settings,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/tasks/board", label: "Board" },
-  { href: "/settings", label: "Settings" },
+  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
+  { href: "/tasks", label: "Tasks", icon: <ListTodo /> },
+  { href: "/tasks/board", label: "Board", icons: <Kanban /> },
+  { href: "/settings", label: "Settings", icon: <Settings /> },
 ];
 
 interface SidebarProps {
@@ -36,7 +43,14 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         `}
       >
         <div className="flex h-14 items-center border-b px-4 md:hidden">
-          <span className="text-sm font-semibold text-[#232323]">TaskFlow Pro</span>
+          <div className="w-full flex items-center justify-between gap-1">
+            <span className="text-sm font-semibold text-[#232323]">
+              TaskFlow Pro
+            </span>
+            <span>
+              <Flower color="#101828" size={20} />
+            </span>
+          </div>
         </div>
 
         <nav className="space-y-1 p-4">

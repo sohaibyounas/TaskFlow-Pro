@@ -1,4 +1,3 @@
-// src/lib/mock/db.ts
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task";
 
 // In-memory "database" — module-level array, dev server ke chalte rehne tak persist karta hai
@@ -42,9 +41,61 @@ let tasks: Task[] = [
     createdAt: "2026-08-03T09:00:00Z",
     updatedAt: "2026-08-03T09:00:00Z",
   },
+  {
+    id: "4",
+    title: "Setup NextAuth credentials provider",
+    description: "Connect login flow with DummyJSON auth endpoint",
+    status: "todo",
+    priority: "high",
+    assignee: null,
+    dueDate: "2026-08-15",
+    tags: ["auth"],
+    commentsCount: 0,
+    createdAt: "2026-08-03T10:00:00Z",
+    updatedAt: "2026-08-03T10:00:00Z",
+  },
+  {
+    id: "5",
+    title: "Add Framer Motion page transitions",
+    description: "Smooth transitions between dashboard routes",
+    status: "review",
+    priority: "low",
+    assignee: { id: 1, name: "Sohaib", avatarUrl: "" },
+    dueDate: null,
+    tags: ["animation"],
+    commentsCount: 1,
+    createdAt: "2026-08-04T09:00:00Z",
+    updatedAt: "2026-08-04T09:00:00Z",
+  },
+  {
+    id: "6",
+    title: "Write Playwright E2E test for task flow",
+    description: "Login -> create task -> drag to done",
+    status: "todo",
+    priority: "medium",
+    assignee: null,
+    dueDate: "2026-08-20",
+    tags: ["testing", "e2e"],
+    commentsCount: 0,
+    createdAt: "2026-08-04T11:00:00Z",
+    updatedAt: "2026-08-04T11:00:00Z",
+  },
+  {
+    id: "7",
+    title: "Setup GitHub Actions CI pipeline",
+    description: "Run lint, type-check, and tests on push",
+    status: "todo",
+    priority: "medium",
+    assignee: null,
+    dueDate: null,
+    tags: ["ci-cd"],
+    commentsCount: 0,
+    createdAt: "2026-08-05T09:00:00Z",
+    updatedAt: "2026-08-05T09:00:00Z",
+  },
 ];
 
-// Real network jaisa lagao iske liye artificial delay
+// Real network jaisa lage iske liye artificial delay
 function delay(ms = 400) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -56,9 +107,32 @@ function generateId(): string {
 // Ye functions exactly waise dikhte hain jaise real API calls hote —
 // isliye baad mein swap karna easy hoga
 export const mockTaskDb = {
+  // Poora list — Kanban board ke liye (status-wise grouping ke liye sab tasks chahiye)
   async getAll(): Promise<Task[]> {
     await delay();
     return [...tasks]; // copy return karo, original array expose mat karo
+  },
+
+  // Paginated version — Tasks list page ke liye (infinite scroll / load more)
+  async getPaginated(
+    page: number,
+    limit: number,
+  ): Promise<{
+    tasks: Task[];
+    nextPage: number | null;
+    total: number;
+  }> {
+    await delay();
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const paginatedTasks = tasks.slice(start, end);
+    const hasMore = end < tasks.length;
+
+    return {
+      tasks: paginatedTasks,
+      nextPage: hasMore ? page + 1 : null, // null = "aur pages nahi hain"
+      total: tasks.length,
+    };
   },
 
   async getById(id: string): Promise<Task | null> {

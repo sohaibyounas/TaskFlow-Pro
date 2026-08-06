@@ -42,8 +42,31 @@ export type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 // Login form ke liye bhi ek schema (Week 4 mein use hoga NextAuth ke sath)
 export const loginFormSchema = z.object({
-  username: z.string().min(1, "Username required hai"),
-  password: z.string().min(4, "Password kam se kam 4 characters ka ho"),
+  username: z.string().email("Entered valid email address"),
+  password: z.string().min(6, "Password should be atleast 6 characters"),
 });
 
 export type LoginFormValues = z.infer<typeof loginFormSchema>;
+
+// export const loginFormSchema = z.object({
+//   email: z.string().email("Valid email address dalo"),
+//   password: z.string().min(6, "Password kam se kam 6 characters ka ho"),
+// });
+
+// export type LoginFormValues = z.infer<typeof loginFormSchema>;
+
+export const signupFormSchema = z
+  .object({
+    username: z.string().min(3, "Username should be atleast 3 characters"),
+    email: z.string().email("Plaese enter the valid email"),
+    password: z.string().min(6, "Password should be atleast 6 characters"),
+    confirmPassword: z.string(),
+  })
+  // refine() yahan CROSS-FIELD validation ke liye use ho raha hai —
+  // password aur confirmPassword dono ko compare karna hai
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords doesn't match",
+    path: ["confirmPassword"], // error yahi field ke neeche dikhega
+  });
+
+export type SignupFormValues = z.infer<typeof signupFormSchema>;

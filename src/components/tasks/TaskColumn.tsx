@@ -7,6 +7,7 @@ import {
 } from "@dnd-kit/sortable";
 import { TaskCard } from "./TaskCard";
 import type { Task, TaskStatus } from "@/types/task";
+import { Package } from "lucide-react";
 
 interface TaskColumnProps {
   status: TaskStatus;
@@ -48,10 +49,15 @@ export function TaskColumn({ status, title, tasks }: TaskColumnProps) {
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} />
           ))}
+
+          {/* empty task case */}
           {tasks.length === 0 && (
-            <p className="py-8 text-center text-xs text-gray-400">
-              There is no task added here.
-            </p>
+            <div className="flex flex-col items-center justify-center pt-2">
+              <Package color="grey" size={28} />
+              <p className="pt-3 text-center text-xs text-gray-400">
+                There is no task added here.
+              </p>
+            </div>
           )}
         </div>
       </SortableContext>

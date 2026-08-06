@@ -12,7 +12,7 @@ import type { Task } from "@/types/task";
 
 interface TaskFormProps {
   onSuccess?: () => void;
-  task?: Task; // agar ye prop mile, form "edit mode" mein chala jayega
+  task?: Task;
 }
 
 export function TaskForm({ onSuccess, task }: TaskFormProps) {
@@ -52,7 +52,6 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
         },
   });
 
-  // Jab task prop change ho (alag task edit karo), form reset karo nayi values se
   useEffect(() => {
     if (task) {
       reset({
@@ -104,7 +103,7 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
         },
       );
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -173,7 +172,7 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
       <button
         type="submit"
         disabled={activeMutation.isPending}
-        className="w-full rounded bg-black p-px py-2 text-sm font-medium text-white bg-gray-800 shadow-2xl cursor-pointer rounded-xl shadow-zinc-900 transition-transform duration-300 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50"
+        className="w-full rounded bg-black p-px py-2 text-sm font-medium text-white bg-gray-800 shadow-2xl cursor-pointer rounded-xl shadow-zinc-900 disabled:opacity-50"
       >
         {activeMutation.isPending
           ? isEditMode
