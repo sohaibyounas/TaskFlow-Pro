@@ -11,10 +11,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
-  { href: "/tasks", label: "Tasks", icon: <ListTodo /> },
-  { href: "/tasks/board", label: "Board", icons: <Kanban /> },
-  { href: "/settings", label: "Settings", icon: <Settings /> },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: <LayoutDashboard size={18} />,
+  },
+  { href: "/tasks", label: "Tasks", icon: <ListTodo size={18} /> },
+  { href: "/tasks/board", label: "Board", icon: <Kanban size={18} /> },
+  { href: "/settings", label: "Settings", icon: <Settings size={18} /> },
 ];
 
 interface SidebarProps {
@@ -61,13 +65,14 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`block rounded px-3 py-2 text-sm ${
+                className={`block rounded px-3 py-2 text-sm flex items-center justify-between w-full ${
                   isActive
                     ? "bg-gray-900 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    : "text-gray-700 hover:bg-gray-300"
                 }`}
               >
                 {item.label}
+                {item.icon}
               </Link>
             );
           })}
