@@ -42,18 +42,11 @@ export type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 // Login form ke liye bhi ek schema (Week 4 mein use hoga NextAuth ke sath)
 export const loginFormSchema = z.object({
-  username: z.string().email("Entered valid email address"),
+  email: z.string().email("Entered valid email address"),
   password: z.string().min(6, "Password should be atleast 6 characters"),
 });
 
 export type LoginFormValues = z.infer<typeof loginFormSchema>;
-
-// export const loginFormSchema = z.object({
-//   email: z.string().email("Valid email address dalo"),
-//   password: z.string().min(6, "Password kam se kam 6 characters ka ho"),
-// });
-
-// export type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 export const signupFormSchema = z
   .object({
