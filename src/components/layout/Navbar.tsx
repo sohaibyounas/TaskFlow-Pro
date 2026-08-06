@@ -20,7 +20,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   }
 
   return (
-    <header className="flex h-14 flex-shrink-0 items-center justify-between border-b bg-white px-4 md:px-6">
+    <header className="flex h-16 flex-shrink-0 items-center justify-between border-b bg-white px-4 md:px-6">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
@@ -50,7 +50,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
 
       <button
         onClick={handleLogout}
-        className="text-xs p-1 rounded-[8px] text-gray-600 hover:text-gray-900 border border-[#232323]"
+        className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         Logout
       </button>
