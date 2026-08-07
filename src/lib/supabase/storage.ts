@@ -41,7 +41,7 @@ export async function deleteAttachment(url: string): Promise<void> {
   // Extract path from public URL
   const parts = url.split(`/${BUCKET}/`);
   if (parts.length < 2) return;
-  const path = parts[1];
+  const path = parts[1]!;
 
   await supabase.storage.from(BUCKET).remove([path]);
 }
