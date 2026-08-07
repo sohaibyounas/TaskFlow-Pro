@@ -9,13 +9,13 @@ export const taskPriorityEnum = z.enum(["low", "medium", "high", "urgent"]);
 export const taskFormSchema = z.object({
   title: z
     .string()
-    .min(3, "Title kam se kam 3 characters ka hona chahiye")
-    .max(100, "Title 100 characters se zyada nahi ho sakta"),
+    .min(3, "Title should be atleast 3 characters")
+    .max(100, "Title shoulde not be more then 100 characters"),
 
   description: z
     .string()
-    .min(10, "Description kam se kam 10 characters ka ho")
-    .max(1000, "Description bahut lamba hai"),
+    .min(10, "Description should be atleast 10 characters")
+    .max(1000, "Description shoulde not be more then 200 characters"),
 
   status: taskStatusEnum,
 

@@ -32,7 +32,7 @@ export function TaskCard({ task }: TaskCardProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none">
       <motion.div
         layout 
         initial={{ opacity: 0, y: 8 }}
@@ -43,7 +43,7 @@ export function TaskCard({ task }: TaskCardProps) {
         }}
         whileHover={{ scale: 1.01 }}
         transition={{ duration: 0.15 }}
-        className="cursor-grab rounded-lg border bg-white p-3 shadow-sm active:cursor-grabbing"
+        className="cursor-grab rounded-lg border bg-white p-3 shadow-sm active:cursor-grabbing select-none"
       >
         <p className="text-sm font-medium text-gray-900">{task.title}</p>
         <p className="mt-1 line-clamp-2 text-xs text-gray-500">

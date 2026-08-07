@@ -6,12 +6,15 @@ import {
   DragOverlay,
   closestCorners,
   PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
@@ -29,8 +32,16 @@ export function KanbanBoard() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 }, // 8px move karne ke baad hi drag start ho
-      // (isse accidental click ko drag samajhne se bachta hai)
+      activationConstraint: { distance: 8 }, // desktop: 8px move ke baad drag start
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,      // mobile: 250ms hold karo tab drag start ho
+        tolerance: 5,    // thodi si movement allow karo (scroll se bachao)
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
 

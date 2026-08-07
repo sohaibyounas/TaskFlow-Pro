@@ -99,7 +99,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                     ${
                       isActive
                         ? "bg-[#101828] text-white shadow-sm"
-                        : "text-[#475467] hover:bg-[#F2F4F7] hover:text-[#101828]"
+                        : "text-[#475467] hover:bg-[#a6adad] hover:text-[#101828]"
                     }
                   `}
                 >

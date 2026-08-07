@@ -44,7 +44,7 @@ export default function TasksPage() {
         </h2>
         <button
           onClick={() => setShowCreateForm((prev) => !prev)}
-          className="relative inline-block p-2.5 font-semibold leading-6 text-white bg-gray-800 shadow-2xl cursor-pointer rounded-xl shadow-zinc-900 transition-transform duration-300 ease-in-out hover:scale-105 active:scale-95"
+          className="relative inline-block p-2.5 font-medium leading-5 text-white bg-gray-800 shadow-2xl px-3 cursor-pointer rounded-md shadow-zinc-900 transition-transform duration-300 ease-in-out hover:scale-105 active:scale-95"
         >
           {showCreateForm ? "Cancel" : "+ New Task"}
         </button>

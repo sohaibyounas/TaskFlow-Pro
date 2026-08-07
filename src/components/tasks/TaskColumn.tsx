@@ -39,8 +39,6 @@ export function TaskColumn({ status, title, tasks }: TaskColumnProps) {
         </span>
       </div>
 
-      {/* SortableContext — is column ke andar jitne cards hain,
-          unko ek "sortable group" bana deta hai (reorder karne ke liye) */}
       <SortableContext
         items={tasks.map((t) => t.id)}
         strategy={verticalListSortingStrategy}
