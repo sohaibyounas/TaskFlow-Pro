@@ -1,31 +1,131 @@
 "use client";
 
-import { useEffect } from "react";
-import { useForm, type SubmitHandler } from "react-hook-form";
+import { useEffect, useRef, useState } from "react";
+import { useForm, Controller, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
+  Film,
+  Upload,
+  Loader2,
+} from "lucide-react";
 import {
   taskFormSchema,
   type TaskFormValues,
 } from "@/lib/validations/task.schema";
 import { useCreateTask, useUpdateTask } from "@/hooks/useTaskMutations";
-import type { Task } from "@/types/task";
+import type { Task, TaskAttachment } from "@/types/task";
+import { RichTextEditor } from "@/components/editor/RichTextEditor";
 
 interface TaskFormProps {
   onSuccess?: () => void;
   task?: Task;
+  onAttachmentsReady?: (attachments: TaskAttachment[]) => void;
 }
 
-export function TaskForm({ onSuccess, task }: TaskFormProps) {
+function isImage(type: string) {
+  return type.startsWith("image/");
+}
+function isVideo(type: string) {
+  return type.startsWith("video/");
+}
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentPill({
+  attachment,
+  onRemove,
+}: {
+  attachment: TaskAttachment;
+  onRemove: (id: string) => void;
+}) {
+  const icon = isImage(attachment.type) ? (
+    <ImageIcon size={12} className="text-purple-500" />
+  ) : isVideo(attachment.type) ? (
+    <Film size={12} className="text-blue-500" />
+  ) : (
+    <FileText size={12} className="text-gray-500" />
+  );
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border border-gray-100 bg-gray-50 px-2 py-1.5 text-xs text-gray-700">
+      {isImage(attachment.type) ? (
+        <img
+          src={attachment.url}
+          alt={attachment.name}
+          className="h-5 w-7 flex-shrink-0 rounded object-cover"
+        />
+      ) : (
+        <span className="flex-shrink-0">{icon}</span>
+      )}
+      <span className="max-w-[120px] truncate font-medium">
+        {attachment.name}
+      </span>
+      <span className="flex-shrink-0 text-gray-400">
+        {formatBytes(attachment.size)}
+      </span>
+      <button
+        type="button"
+        onClick={() => onRemove(attachment.id)}
+        className="ml-0.5 flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+        aria-label={`Remove ${attachment.name}`}
+      >
+        <X size={11} />
+      </button>
+    </div>
+  );
+}
+
+export function TaskForm({
+  onSuccess,
+  task,
+  onAttachmentsReady,
+}: TaskFormProps) {
   const isEditMode = !!task;
 
   const createTaskMutation = useCreateTask();
   const updateTaskMutation = useUpdateTask();
-
-  // Dono mutations mein se jo relevant hai uska loading/error state use karenge
   const activeMutation = isEditMode ? updateTaskMutation : createTaskMutation;
 
+  // ── Attachments local state ───────────────────────────────────────────────
+  const [attachments, setAttachments] = useState<TaskAttachment[]>(
+    task?.attachments ?? [],
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setAttachments(task?.attachments ?? []);
+  }, [task?.id]);
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const newOnes: TaskAttachment[] = files.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: file.name,
+      url: URL.createObjectURL(file),
+      type: file.type || "application/octet-stream",
+      size: file.size,
+      addedAt: new Date().toISOString(),
+    }));
+    setAttachments((prev) => [...prev, ...newOnes]);
+    e.target.value = "";
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  // ── Form ─────────────────────────────────────────────────────────────────
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
@@ -67,8 +167,12 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
   }, [task?.id]);
 
   const onSubmit: SubmitHandler<TaskFormValues> = (values) => {
+    const handleDone = () => {
+      onAttachmentsReady?.(attachments);
+      onSuccess?.();
+    };
+
     if (isEditMode) {
-      // UPDATE path
       updateTaskMutation.mutate(
         {
           id: task.id,
@@ -81,10 +185,9 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
             tags: values.tags,
           },
         },
-        { onSuccess: () => onSuccess?.() },
+        { onSuccess: handleDone },
       );
     } else {
-      // 🎯 CREATE path
       createTaskMutation.mutate(
         {
           title: values.title,
@@ -98,7 +201,8 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
         {
           onSuccess: () => {
             reset();
-            onSuccess?.();
+            setAttachments([]);
+            handleDone();
           },
         },
       );
@@ -107,6 +211,7 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* Title */}
       <div>
         <label className="block text-sm font-medium text-[#232323]">
           Title
@@ -121,14 +226,24 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
         )}
       </div>
 
+      {/* Description — Tiptap editor via Controller */}
       <div>
         <label className="block text-sm font-medium text-[#232323]">
           Description
         </label>
-        <textarea
-          {...register("description")}
-          rows={3}
-          className="mt-1 w-full rounded border px-3 py-2 text-sm text-[#232323]"
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <div className="mt-1">
+              <RichTextEditor
+                content={field.value ?? ""}
+                onChange={field.onChange}
+                placeholder="Add task description..."
+                variant="compact"
+              />
+            </div>
+          )}
         />
         {errors.description && (
           <p className="mt-1 text-xs text-red-600">
@@ -137,6 +252,7 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
         )}
       </div>
 
+      {/* Status + Priority */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-[#232323]">
@@ -169,24 +285,91 @@ export function TaskForm({ onSuccess, task }: TaskFormProps) {
         </div>
       </div>
 
+      {/* ── Attachments ──────────────────────────────────────────────────── */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-[#232323]">
+            <Paperclip size={14} />
+            Attachments
+            {attachments.length > 0 && (
+              <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
+                {attachments.length}
+              </span>
+            )}
+          </label>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200"
+          >
+            <Upload size={11} />
+            Add file
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+
+        {attachments.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 py-4 text-xs text-gray-400 transition hover:border-gray-300 hover:text-gray-500"
+          >
+            <Paperclip size={14} />
+            Click to attach files, images, or videos
+          </button>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {attachments.map((att) => (
+              <AttachmentPill
+                key={att.id}
+                attachment={att}
+                onRemove={removeAttachment}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1 rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400 transition hover:border-gray-300 hover:text-gray-500"
+            >
+              <Upload size={11} />
+              Add more
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Submit */}
       <button
         type="submit"
         disabled={activeMutation.isPending}
-        className="w-full rounded bg-black p-px py-2 text-sm font-medium text-white bg-gray-800 shadow-2xl cursor-pointer rounded-xl shadow-zinc-900 disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-2 cursor-pointer rounded-xl bg-gray-800 py-2 text-sm font-medium text-white shadow-2xl shadow-zinc-900 transition hover:bg-gray-700 disabled:opacity-50"
       >
-        {activeMutation.isPending
-          ? isEditMode
-            ? "Updating..."
-            : "Creating..."
-          : isEditMode
-            ? "Update Task"
-            : "Create Task"}
+        <span>
+          {activeMutation.isPending
+            ? isEditMode
+              ? "Updating..."
+              : "Creating..."
+            : isEditMode
+              ? "Update Task"
+              : "Create Task"}
+        </span>
+        {activeMutation.isPending && (
+          <Loader2 size={16} className="animate-spin" />
+        )}
       </button>
 
       {activeMutation.isError && (
         <p className="text-sm text-red-600">
-          {isEditMode ? "Task update nahi hua" : "Task create nahi hua"}, dobara
-          try karo
+          {isEditMode ? "Task didn't updated" : "Task didn't created"}, try
+          again
         </p>
       )}
     </form>

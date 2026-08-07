@@ -1,4 +1,4 @@
-import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task";
+import type { Task, TaskAttachment, CreateTaskInput, UpdateTaskInput } from "@/types/task";
 
 // Database row ka shape — snake_case, Supabase se aisa hi aata hai
 export interface TaskRow {
@@ -10,6 +10,7 @@ export interface TaskRow {
   due_date: string | null;
   tags: string[];
   comments_count: number;
+  attachments: TaskAttachment[] | null;
   assignee_id: string | null;
   user_id: string;
   created_at: string;
@@ -27,6 +28,7 @@ export function mapRowToTask(row: TaskRow): Task {
     dueDate: row.due_date,
     tags: row.tags,
     commentsCount: row.comments_count,
+    attachments: row.attachments ?? [],
     assignee: null, // 🎯 abhi simplification — Step 2 mein profiles join se real object aayega
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -55,5 +57,6 @@ export function mapUpdateInputToRow(input: UpdateTaskInput) {
   if (input.priority !== undefined) row.priority = input.priority;
   if (input.dueDate !== undefined) row.due_date = input.dueDate;
   if (input.tags !== undefined) row.tags = input.tags;
+  if (input.attachments !== undefined) row.attachments = input.attachments;
   return row;
 }

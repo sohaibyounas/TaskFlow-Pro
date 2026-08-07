@@ -39,11 +39,11 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           </svg>
         </button>
         <div className=" flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-[#232323]">
+          <span className="text-[17px] font-semibold text-[#232323]">
             TaskFlow Pro
           </span>
           <span>
-            <Flower color="#101828" size={20} />
+            <Flower size={23} strokeWidth={2.2} className="text-[#101828]" />
           </span>
         </div>
       </div>

@@ -1,12 +1,89 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useInfiniteTasks } from "@/hooks/useInfiniteTasks";
 import { useDeleteTask } from "@/hooks/useTaskMutations";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { Modal } from "@/components/ui/Modal";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import type { Task } from "@/types/task";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, MoreHorizontal, Edit2, Trash2 } from "lucide-react";
+
+// popover
+
+function RowMenu({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((p) => !p);
+        }}
+        className="flex h-7 w-7 items-center justify-center rounded text-gray-400 transition hover:text-gray-700 hover:cursor-pointer"
+        aria-label="Row options"
+      >
+        <MoreHorizontal size={15} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: -4 }}
+            transition={{ duration: 0.1 }}
+            className="absolute right-0 top-9 z-30 min-w-[130px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl"
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onEdit();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-200"
+            >
+              <Edit2 size={13} className="text-blue-500" />
+              Edit
+            </button>
+            <div className="mx-2 h-px bg-gray-100" />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onDelete();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 transition hover:bg-red-200"
+            >
+              <Trash2 size={13} />
+              Delete
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TasksPage() {
   const {
@@ -21,6 +98,7 @@ export default function TasksPage() {
   const deleteTaskMutation = useDeleteTask();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null);
 
   if (isLoading) return <TasksListSkeleton />;
   if (isError)
@@ -28,7 +106,6 @@ export default function TasksPage() {
       <p className="text-sm text-red-600">Tasks load nahi hue. Refresh karo.</p>
     );
 
-  // Saare pages ke tasks ko ek flat array mein combine karo
   const allTasks = data?.pages.flatMap((page) => page.tasks) ?? [];
   const total = data?.pages[0]?.total ?? 0;
 
@@ -73,24 +150,15 @@ export default function TasksPage() {
                 </span>
               </div>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setEditingTask(task)}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => deleteTaskMutation.mutate(task.id)}
-                className="text-xs text-red-600 hover:underline"
-              >
-                Delete
-              </button>
-            </div>
+
+            {/* Popover menu instead of plain buttons */}
+            <RowMenu
+              onEdit={() => setEditingTask(task)}
+              onDelete={() => setDeletingTask(task)}
+            />
           </div>
         ))}
 
-        {/* Load More button */}
         {hasNextPage && (
           <button
             onClick={() => fetchNextPage()}
@@ -109,6 +177,7 @@ export default function TasksPage() {
         )}
       </div>
 
+      {/* Edit Modal */}
       <Modal
         isOpen={!!editingTask}
         onClose={() => setEditingTask(null)}
@@ -118,6 +187,20 @@ export default function TasksPage() {
           <TaskForm task={editingTask} onSuccess={() => setEditingTask(null)} />
         )}
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deletingTask}
+        taskTitle={deletingTask?.title ?? ""}
+        isDeleting={deleteTaskMutation.isPending}
+        onConfirm={() => {
+          if (!deletingTask) return;
+          deleteTaskMutation.mutate(deletingTask.id, {
+            onSuccess: () => setDeletingTask(null),
+          });
+        }}
+        onCancel={() => setDeletingTask(null)}
+      />
     </div>
   );
 }
@@ -125,19 +208,13 @@ export default function TasksPage() {
 function TasksListSkeleton() {
   return (
     <div className="p-6">
-      {/* Header skeleton */}
       <div className="mb-4 flex items-center justify-between">
         <div className="h-6 w-24 animate-pulse rounded bg-gray-200" />
         <div className="h-9 w-28 animate-pulse rounded-xl bg-gray-200" />
       </div>
-
-      {/* Task rows skeleton */}
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-16 animate-pulse rounded border bg-gray-100"
-          />
+          <div key={i} className="h-16 animate-pulse rounded border bg-gray-100" />
         ))}
       </div>
     </div>

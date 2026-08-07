@@ -33,7 +33,7 @@ export default async function DashboardPage() {
     <div className="h-full overflow-y-auto p-6">
       <h2 className="mb-4 text-lg font-semibold text-[#232323]">Dashboard</h2>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg bg-white p-4 shadow-sm">
           <p className="text-xs font-medium text-[#232323]">Total Tasks</p>
           <p className="text-2xl font-bold text-[#232323]">{tasks.length}</p>
@@ -53,10 +53,10 @@ export default async function DashboardPage() {
       </h3>
 
       {recentTasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center pt-2">
+        <div className="flex flex-col items-center justify-center pt-6 sm:pt-10 md:pt-16 lg:pt-20">
           <Package color="grey" size={28} />
-          <p className="rounded border bg-white p-4 text-sm text-[#232323]">
-            No task yet — create the first task from the Tasks page.
+          <p className="pt-4 text-[12px] sm:text-[16px] text-[#232323]">
+            Ready to get organized? Create your first task now.
           </p>
         </div>
       ) : (
