@@ -236,18 +236,10 @@ export function TaskCard({ task }: TaskCardProps) {
 
             {/* Description */}
             {task.description && (
-              <>
-                {/* <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-500">
-                  {task.description}
-                </p> */}
-
-                {task.description && (
-                  <div
-                    className="prose prose-sm mt-1.5 line-clamp-2 max-w-none text-xs leading-relaxed text-gray-500 [&>*]:my-0"
-                    dangerouslySetInnerHTML={{ __html: task.description }}
-                  />
-                )}
-              </>
+              <div
+                className="prose prose-sm mt-1.5 line-clamp-2 max-w-none text-xs leading-relaxed text-gray-500 [&>*]:my-0"
+                dangerouslySetInnerHTML={{ __html: task.description }}
+              />
             )}
 
             {/* Footer row */}
@@ -327,7 +319,11 @@ export function TaskCard({ task }: TaskCardProps) {
         onClose={() => setEditOpen(false)}
         title="Edit Task"
       >
-        <TaskForm task={task} onSuccess={() => setEditOpen(false)} />
+        <TaskForm
+          task={{ ...task, attachments }}
+          onSuccess={() => setEditOpen(false)}
+          onAttachmentsReady={(updated) => setAttachments(updated)}
+        />
       </Modal>
 
       {/* ── Delete Confirm Modal ─────────────────────────────────────────── */}

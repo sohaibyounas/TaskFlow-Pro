@@ -36,7 +36,7 @@ export function mapRowToTask(row: TaskRow): Task {
 }
 
 // Frontend CreateTaskInput → DB insert payload (camelCase → snake_case)
-export function mapCreateInputToRow(input: CreateTaskInput, userId: string) {
+export function mapCreateInputToRow(input: CreateTaskInput & { attachments?: import("@/types/task").TaskAttachment[] }, userId: string) {
   return {
     title: input.title,
     description: input.description,
@@ -44,7 +44,8 @@ export function mapCreateInputToRow(input: CreateTaskInput, userId: string) {
     priority: input.priority,
     due_date: input.dueDate,
     tags: input.tags,
-    user_id: userId, // RLS ke liye zaroori — batata hai "ye task kisne banaya"
+    attachments: input.attachments ?? [],
+    user_id: userId,
   };
 }
 

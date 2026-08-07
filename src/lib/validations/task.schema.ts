@@ -14,8 +14,14 @@ export const taskFormSchema = z.object({
 
   description: z
     .string()
-    .min(10, "Description should be atleast 10 characters")
-    .max(1000, "Description shoulde not be more then 200 characters"),
+    .refine(
+      (val) => val.replace(/<[^>]*>/g, "").trim().length >= 10,
+      "Description should be atleast 10 characters"
+    )
+    .refine(
+      (val) => val.replace(/<[^>]*>/g, "").trim().length <= 1000,
+      "Description should not be more than 1000 characters"
+    ),
 
   status: taskStatusEnum,
 

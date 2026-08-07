@@ -17,8 +17,10 @@ import {
   Upload,
   Play,
   Pause,
+  Loader2,
 } from "lucide-react";
 import type { Task, TaskAttachment } from "@/types/task";
+import { uploadAttachment, deleteAttachment } from "@/lib/supabase/storage";
 
 interface TaskDetailModalProps {
   task: Task;
@@ -95,10 +97,10 @@ function MediaPlayer({ attachment }: { attachment: TaskAttachment }) {
           onEnded={() => setPlaying(false)}
           controls={false}
         />
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="group absolute inset-0 flex items-center justify-center">
           <button
             onClick={toggle}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition hover:bg-black/70"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm opacity-0 transition group-hover:opacity-100 hover:bg-black/70"
           >
             {playing ? <Pause size={18} /> : <Play size={18} />}
           </button>
@@ -181,8 +183,6 @@ function AttachmentItem({
   );
 }
 
-// ── Main Modal ────────────────────────────────────────────────────────────────
-
 export function TaskDetailModal({
   task,
   isOpen,
@@ -193,6 +193,7 @@ export function TaskDetailModal({
 }: TaskDetailModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<TaskAttachment[]>(task.attachments ?? []);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => { setAttachments(task.attachments ?? []); }, [task.id, task.attachments]);
 
@@ -202,27 +203,31 @@ export function TaskDetailModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    const newAttachments: TaskAttachment[] = files.map((file) => ({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: file.name,
-      url: URL.createObjectURL(file),
-      type: file.type || "application/octet-stream",
-      size: file.size,
-      addedAt: new Date().toISOString(),
-    }));
-    const updated = [...attachments, ...newAttachments];
-    setAttachments(updated);
-    onAttachmentsChange(task.id, updated);
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(files.map((f) => uploadAttachment(f)));
+      const updated = [...attachments, ...uploaded];
+      setAttachments(updated);
+      onAttachmentsChange(task.id, updated);
+    } catch (err) {
+      console.error("Upload failed:", err);
+    } finally {
+      setUploading(false);
+    }
     e.target.value = "";
   }
 
-  function handleRemoveAttachment(id: string) {
+  async function handleRemoveAttachment(id: string) {
+    const att = attachments.find((a) => a.id === id);
     const updated = attachments.filter((a) => a.id !== id);
     setAttachments(updated);
     onAttachmentsChange(task.id, updated);
+    if (att) {
+      try { await deleteAttachment(att.url); } catch {}
+    }
   }
 
   if (!isOpen) return null;
@@ -235,20 +240,19 @@ export function TaskDetailModal({
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden">
-        {/* ── Cover banner (Trello-style) ── */}
+        {/* Cover banner */}
         {coverImage && (
           <div className="relative h-44 w-full overflow-hidden bg-gray-200">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={coverImage.url} alt="Cover"
               className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
           </div>
         )}
 
-        {/* Close button — always top-right */}
+        {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 rounded-full bg-white/80 p-1.5 text-gray-500 backdrop-blur-sm transition hover:bg-white hover:text-gray-800"
+          className="absolute right-0 top-0.5 z-10 rounded-full bg-white/80 p-1 text-gray-500 backdrop-blur-sm transition hover:bg-white hover:text-gray-800"
           aria-label="Close"
         >
           <X size={16} />
@@ -279,11 +283,14 @@ export function TaskDetailModal({
                 <AlignLeft size={13} />
                 Description
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                {task.description || (
-                  <span className="italic text-gray-400">No description</span>
-                )}
-              </p>
+              {task.description ? (
+                <div
+                  className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700"
+                  dangerouslySetInnerHTML={{ __html: task.description }}
+                />
+              ) : (
+                <p className="italic text-sm text-gray-400">No description</p>
+              )}
             </section>
 
             {/* Tags */}
@@ -318,10 +325,11 @@ export function TaskDetailModal({
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200"
+                  disabled={uploading}
+                  className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
                 >
-                  <Upload size={12} />
-                  Add
+                  {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                  {uploading ? "Uploading..." : "Add"}
                 </button>
                 <input
                   ref={fileInputRef}

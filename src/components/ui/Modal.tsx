@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { X } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,7 +11,6 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  // Escape key se close ho jaye
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -23,20 +23,25 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl">
+        {/* Fixed header */}
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
           <h2 className="text-base font-semibold text-[#232323]">{title}</h2>
           <button
             onClick={onClose}
-            className="rounded px-1 text-gray-600 hover:bg-gray-100 hover:text-[#232323]"
+            className="rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
             aria-label="Close"
           >
-            X
+            <X size={16} />
           </button>
         </div>
-        {children}
+
+        {/* Scrollable body — children (TaskForm) must fill this with flex-col h-full */}
+        <div className="min-h-0 flex-1 overflow-y-auto flex flex-col">
+          {children}
+        </div>
       </div>
     </div>
   );

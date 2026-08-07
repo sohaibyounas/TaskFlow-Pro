@@ -10,12 +10,12 @@ import {
   type LoginFormValues,
 } from "@/lib/validations/task.schema";
 import { createClient } from "@/lib/supabase/client";
-import { Eye, EyeOff } from "lucide-react"; // 1. Eye icons import kiye
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState<boolean>(false); // 2. Password visibility state
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   const {
     register,
@@ -38,7 +38,7 @@ export default function LoginPage() {
     if (error) {
       setServerError(
         error.message === "Invalid login credentials"
-          ? "Email ya password galat hai"
+          ? "Incorrect email or password."
           : error.message,
       );
       return;
@@ -65,7 +65,6 @@ export default function LoginPage() {
           <input
             {...register("email")}
             type="email"
-            // 3. Placeholder ka size customize karne ke liye 'placeholder:text-xs' ya 'placeholder:text-[11px]' use karein
             className="mt-1 w-full rounded border px-3 py-2 text-sm text-[#232323] placeholder:text-xs placeholder:text-gray-400"
             placeholder="you@example.com"
           />
@@ -82,7 +81,7 @@ export default function LoginPage() {
           <div className="relative mt-1">
             <input
               {...register("password")}
-              type={showPassword ? "text" : "password"} // Dynamic type change
+              type={showPassword ? "text" : "password"} 
               className="w-full rounded border px-3 py-2 pr-10 text-sm text-[#232323]"
             />
             <button
