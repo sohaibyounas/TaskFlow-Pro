@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useInfiniteTasks } from "@/hooks/useInfiniteTasks";
 import { useDeleteTask } from "@/hooks/useTaskMutations";
@@ -8,80 +9,110 @@ import { TaskForm } from "@/components/tasks/TaskForm";
 import { Modal } from "@/components/ui/Modal";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import type { Task, TaskPriority, TaskStatus } from "@/types/task";
-import { LoaderCircle, MoreHorizontal, Edit2, Trash2 } from "lucide-react";
+import { LoaderCircle, MoreHorizontal, Edit2, Trash2, PackageOpen, AlertCircle } from "lucide-react";
 
-// ── Color maps (same as board) ────────────────────────────────────────────────
+// Color maps 
 
 const PRIORITY_STYLES: Record<TaskPriority, { bg: string; text: string; label: string }> = {
-  low:    { bg: "#F3F4F6", text: "#4B5563", label: "Low" },
+  low: { bg: "#F3F4F6", text: "#4B5563", label: "Low" },
   medium: { bg: "#DBEAFE", text: "#1D4ED8", label: "Medium" },
-  high:   { bg: "#FFEDD4", text: "#CA3500", label: "High" },
+  high: { bg: "#FFEDD4", text: "#CA3500", label: "High" },
   urgent: { bg: "#FEE2E2", text: "#DC2626", label: "Urgent" },
 };
 
 const STATUS_STYLES: Record<TaskStatus, { bg: string; text: string; label: string }> = {
-  "todo":        { bg: "#F3F4F6", text: "#374151", label: "Todo" },
+  "todo": { bg: "#F3F4F6", text: "#374151", label: "Todo" },
   "in-progress": { bg: "#DBEAFE", text: "#1D4ED8", label: "In Progress" },
-  "review":      { bg: "#FEF3C7", text: "#B45309", label: "Review" },
-  "done":        { bg: "#D1FAE5", text: "#065F46", label: "Done" },
+  "review": { bg: "#FEF3C7", text: "#B45309", label: "Review" },
+  "done": { bg: "#D1FAE5", text: "#065F46", label: "Done" },
 };
 
-// ── Row menu popover ──────────────────────────────────────────────────────────
+// menu popover
 
 function RowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) setOpen(false);
     }
     if (open) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  function handleOpen(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!btnRef.current) { setOpen((p) => !p); return; }
+    const rect = btnRef.current.getBoundingClientRect();
+    const MENU_H = 80;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < MENU_H + 8;
+    setMenuStyle({
+      position: "fixed",
+      right: window.innerWidth - rect.right,
+      ...(openUpward
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+      zIndex: 9999,
+    });
+    setOpen((p) => !p);
+  }
+
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }}
+        ref={btnRef}
+        onClick={handleOpen}
         className="flex h-7 w-7 items-center justify-center rounded text-gray-400 transition hover:text-gray-700 hover:cursor-pointer"
         aria-label="Row options"
       >
         <MoreHorizontal size={15} />
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: -4 }}
-            transition={{ duration: 0.1 }}
-            className="absolute right-0 top-9 z-30 min-w-[130px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl"
-          >
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100"
+      {/* Portal: AnimatePresence inside portal so motion.div is tracked directly */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              ref={menuRef}
+              style={menuStyle}
+              initial={{ opacity: 0, scale: 0.92, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: -4 }}
+              transition={{ duration: 0.1 }}
+              className="min-w-[130px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl"
             >
-              <Edit2 size={13} className="text-blue-500" />
-              Edit
-            </button>
-            <div className="mx-2 h-px bg-gray-100" />
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 transition hover:bg-red-50"
-            >
-              <Trash2 size={13} />
-              Delete
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100"
+              >
+                <Edit2 size={13} className="text-blue-500" />
+                Edit
+              </button>
+              <div className="mx-2 h-px bg-gray-100" />
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 transition hover:bg-red-50"
+              >
+                <Trash2 size={13} />
+                Delete
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
 
-// ── Skeleton row ─────────────────────────────────────────────────────────────
+// Skeleton row 
 
 function SkeletonRow() {
   return (
@@ -97,8 +128,6 @@ function SkeletonRow() {
     </div>
   );
 }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TasksPage() {
   const {
@@ -117,7 +146,23 @@ export default function TasksPage() {
 
   if (isLoading) return <TasksListSkeleton />;
   if (isError)
-    return <p className="p-6 text-sm text-red-600 items-center">The tasks didn't load. Please refresh the page.</p>;
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-10 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+          <AlertCircle size={28} className="text-red-400" />
+        </div>
+        <div>
+          <p className="text-base font-semibold text-gray-800">Failed to load tasks</p>
+          <p className="mt-1 text-sm text-gray-500">Something went wrong. Please try refreshing the page.</p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700"
+        >
+          Refresh Page
+        </button>
+      </div>
+    );
 
   const allTasks = data?.pages.flatMap((page) => page.tasks) ?? [];
   const total = data?.pages[0]?.total ?? 0;
@@ -142,65 +187,84 @@ export default function TasksPage() {
 
       {/* Task list */}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-        {allTasks.map((task) => {
-          const p = PRIORITY_STYLES[task.priority];
-          const s = STATUS_STYLES[task.status];
-          return (
-            <div
-              key={task.id}
-              className="flex items-center justify-between rounded-lg border bg-white p-3"
-            >
-              <div>
-                <p className="text-sm font-medium text-[#232323]">{task.title}</p>
-                <div className="mt-1.5 flex gap-2">
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: s.bg, color: s.text }}
-                  >
-                    {s.label}
-                  </span>
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: p.bg, color: p.text }}
-                  >
-                    {p.label}
-                  </span>
-                </div>
-              </div>
-
-              <RowMenu
-                onEdit={() => setEditingTask(task)}
-                onDelete={() => setDeletingTask(task)}
-              />
+        {allTasks.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 py-20 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+              <PackageOpen size={32} className="text-gray-400" />
             </div>
-          );
-        })}
-
-        {/* Load More */}
-        {hasNextPage && (
+            <div>
+              <p className="text-base font-semibold text-gray-700">No tasks yet</p>
+              <p className="mt-1 text-sm text-gray-400">Create your first task to get started</p>
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-gray-700"
+            >
+              + New Task
+            </button>
+          </div>
+        ) : (
           <>
-            {/* Skeleton rows while fetching */}
-            {isFetchingNextPage && (
+            {allTasks.map((task) => {
+              const p = PRIORITY_STYLES[task.priority];
+              const s = STATUS_STYLES[task.status];
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between rounded-lg border bg-white p-3 transition hover:shadow-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-[#232323]">{task.title}</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      <span
+                        className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        style={{ backgroundColor: s.bg, color: s.text }}
+                      >
+                        {s.label}
+                      </span>
+                      <span
+                        className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        style={{ backgroundColor: p.bg, color: p.text }}
+                      >
+                        {p.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <RowMenu
+                    onEdit={() => setEditingTask(task)}
+                    onDelete={() => setDeletingTask(task)}
+                  />
+                </div>
+              );
+            })}
+
+            {/* Load More */}
+            {hasNextPage && (
               <>
-                <SkeletonRow />
-                <SkeletonRow />
-                <SkeletonRow />
+                {isFetchingNextPage && (
+                  <>
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                  </>
+                )}
+                <button
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-sm text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      Loading more
+                      <LoaderCircle className="animate-spin" size={15} />
+                    </>
+                  ) : (
+                    "Load more"
+                  )}
+                </button>
               </>
             )}
-            <button
-              onClick={() => fetchNextPage()}
-              disabled={isFetchingNextPage}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-sm text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
-            >
-              {isFetchingNextPage ? (
-                <>
-                  Loading more
-                  <LoaderCircle className="animate-spin" size={15} />
-                </>
-              ) : (
-                "Load more"
-              )}
-            </button>
           </>
         )}
       </div>

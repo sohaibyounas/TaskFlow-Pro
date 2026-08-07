@@ -4,9 +4,14 @@ import { KanbanBoard } from "@/components/tasks/KanbanBoard";
 
 export default function BoardPage() {
   return (
-    <div>
-      <h2 className="mb-4 text-lg font-semibold text-[#232323] pl-[23px] pt-4">My Work Flow Board</h2>
-      <KanbanBoard />
+    <div className="flex h-full min-h-0 flex-col">
+      <h2 className="flex-shrink-0 px-6 pt-5 pb-2 text-lg font-semibold text-[#232323]">
+        My Work Flow Board
+      </h2>
+      <div className="min-h-0 flex-1">
+        <KanbanBoard />
+      </div>
     </div>
   );
 }
+

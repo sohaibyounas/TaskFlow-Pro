@@ -27,7 +27,7 @@ export const taskFormSchema = z.object({
 
   priority: taskPriorityEnum,
 
-  assigneeId: z.number().nullable().optional(), // form mein assignee select nahi kiya to bhi chalega
+  assigneeId: z.string().nullable().optional(), // form mein assignee select nahi kiya to bhi chalega
 
   dueDate: z
     .string()

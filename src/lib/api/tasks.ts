@@ -7,40 +7,75 @@ import {
 } from "@/lib/supabase/mappers";
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task";
 
+const TASK_SELECT_WITH_ASSIGNEE = `
+  *,
+  assignee:profiles(id, username, avatar_url)
+`;
+
 export async function fetchTasks(): Promise<Task[]> {
   const supabase = createClient();
+  let data: unknown[] | null = null;
+  let error = null;
 
-  const { data, error } = await supabase
+  const withJoin = await supabase
     .from("tasks")
-    .select("*")
+    .select(TASK_SELECT_WITH_ASSIGNEE)
     .order("created_at", { ascending: false });
 
-  if (error) throw new Error(error.message);
+  if (withJoin.error) {
+    const plain = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false });
+    data = plain.data;
+    error = plain.error;
+  } else {
+    data = withJoin.data;
+    error = withJoin.error;
+  }
 
-  return (data as TaskRow[]).map(mapRowToTask);
+  if (error) throw new Error((error as { message: string }).message);
+  return (data as unknown as TaskRow[]).map(mapRowToTask);
 }
 
 export async function fetchTasksPaginated(page: number, limit: number) {
   const supabase = createClient();
-
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
-  // { count: "exact" } se total rows bhi milte hain, ek hi query mein
-  const { data, error, count } = await supabase
+  // Try with profiles join first; fall back to plain select if it fails (e.g. RLS on profiles)
+  let data: unknown[] | null = null;
+  let count: number | null = null;
+  let error = null;
+
+  const withJoin = await supabase
     .from("tasks")
-    .select("*", { count: "exact" })
+    .select(TASK_SELECT_WITH_ASSIGNEE, { count: "exact" })
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  if (error) throw new Error(error.message);
+  if (withJoin.error) {
+    // Fallback: plain select without profiles join
+    const plain = await supabase
+      .from("tasks")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    data = plain.data;
+    count = plain.count;
+    error = plain.error;
+  } else {
+    data = withJoin.data;
+    count = withJoin.count;
+    error = withJoin.error;
+  }
+
+  if (error) throw new Error((error as { message: string }).message);
 
   const total = count ?? 0;
-  const hasMore = to < total - 1;
-
   return {
-    tasks: (data as TaskRow[]).map(mapRowToTask),
-    nextPage: hasMore ? page + 1 : null,
+    tasks: (data as unknown as TaskRow[]).map(mapRowToTask),
+    nextPage: to < total - 1 ? page + 1 : null,
     total,
   };
 }

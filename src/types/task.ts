@@ -46,14 +46,12 @@ export interface Task {
 }
 
 // Task create karte waqt user sirf kuch fields deta hai —
-// id, createdAt, updatedAt, commentsCount, attachments ye server/mock API generate karega
-export type CreateTaskInput = Omit<
-  Task,
-  "id" | "createdAt" | "updatedAt" | "commentsCount" | "attachments"
->;
+// id, createdAt, updatedAt, commentsCount ye server/mock API generate karega
+export type CreateTaskInput = Omit<Task, "id" | "createdAt" | "updatedAt" | "commentsCount" | "assignee"> & {
+  assigneeId: string | null;
+};
 
-// Update ke liye — sab fields optional (partial update allowed)
-export type UpdateTaskInput = Partial<CreateTaskInput> & { attachments?: TaskAttachment[] };
+export type UpdateTaskInput = Partial<CreateTaskInput>;
 
 // Kanban board ke columns ka shape — status ko group karne ke liye
 export interface TaskColumn {

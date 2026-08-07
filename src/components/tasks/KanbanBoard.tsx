@@ -15,19 +15,17 @@ import {
   type DragOverEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, PackageOpen } from "lucide-react";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
 import { useTasksByStatus } from "@/hooks/useTasksByStatus";
 import { useUpdateTask } from "@/hooks/useTaskMutations";
-import { taskKeys } from "@/hooks/useTasks";
 import type { Task, TaskStatus } from "@/types/task";
 import { TaskCardSkeleton } from "./TaskCardSkeleton";
 
 export function KanbanBoard() {
   const { columns, isLoading, isError } = useTasksByStatus();
   const updateTaskMutation = useUpdateTask();
-  const queryClient = useQueryClient();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -86,7 +84,7 @@ export function KanbanBoard() {
 
     if (!targetStatus || targetStatus === draggedTask.status) return;
 
-    // 🎯 Yahi mutation call hoti hai — optimistic update automatically
+    // Yahi mutation call hoti hai — optimistic update automatically
     // chal jayega humare useUpdateTask hook ki wajah se
     updateTaskMutation.mutate({
       id: activeTaskId,
@@ -97,7 +95,23 @@ export function KanbanBoard() {
   //   if (isLoading)
   //     return <TaskCardSkeleton />;
   if (isError)
-    return <p className="text-sm text-red-600">Board load nahi hua.</p>;
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-10 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+          <AlertCircle size={28} className="text-red-400" />
+        </div>
+        <div>
+          <p className="text-base font-semibold text-gray-800">Failed to load board</p>
+          <p className="mt-1 text-sm text-gray-500">Something went wrong. Please try refreshing the page.</p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700"
+        >
+          Refresh Page
+        </button>
+      </div>
+    );
 
   return (
     <DndContext

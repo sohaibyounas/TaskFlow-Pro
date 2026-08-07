@@ -143,10 +143,16 @@ export function TaskCard({ task }: TaskCardProps) {
   const deleteTask = useDeleteTask();
   const updateTask = useUpdateTask();
 
-  // Sync when task.attachments change from outside
+  // Sync from server only when no modal is active and task content actually changed
+  const prevTaskAttachmentsRef = useRef<string>("");
   useEffect(() => {
-    setAttachments(task.attachments ?? []);
-  }, [task.attachments]);
+    if (detailOpen || editOpen) return;
+    const serialized = JSON.stringify(task.attachments ?? []);
+    if (serialized !== prevTaskAttachmentsRef.current) {
+      prevTaskAttachmentsRef.current = serialized;
+      setAttachments(task.attachments ?? []);
+    }
+  }, [task.attachments, detailOpen, editOpen]);
 
   function handleAttachmentsChange(_taskId: string, updated: TaskAttachment[]) {
     setAttachments(updated);

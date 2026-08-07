@@ -18,6 +18,9 @@ import {
   Play,
   Pause,
   Loader2,
+  Eye,
+  EyeOff,
+  FileType,
 } from "lucide-react";
 import type { Task, TaskAttachment } from "@/types/task";
 import { uploadAttachment, deleteAttachment } from "@/lib/supabase/storage";
@@ -52,9 +55,24 @@ const STATUS_LABELS: Record<Task["status"], string> = {
   done: "Done",
 };
 
-function isImage(type: string) { return type.startsWith("image/"); }
-function isVideo(type: string) { return type.startsWith("video/"); }
-function isAudio(type: string) { return type.startsWith("audio/"); }
+function isImage(type: string) {
+  return type.startsWith("image/");
+}
+function isVideo(type: string) {
+  return type.startsWith("video/");
+}
+function isAudio(type: string) {
+  return type.startsWith("audio/");
+}
+function isPdf(type: string) {
+  return type === "application/pdf";
+}
+function isText(type: string, name: string) {
+  return type.startsWith("text/") || /\.(txt|md|csv|json|log)$/i.test(name);
+}
+function isOfficeDoc(type: string, name: string) {
+  return /\.(docx?|xlsx?|pptx?)$/i.test(name);
+}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -64,14 +82,19 @@ function formatBytes(bytes: number) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
-function AttachmentIcon({ type }: { type: string }) {
+function AttachmentIcon({ type, name }: { type: string; name: string }) {
   if (isImage(type)) return <ImageIcon size={16} className="text-purple-500" />;
   if (isVideo(type)) return <Film size={16} className="text-blue-500" />;
   if (isAudio(type)) return <Music size={16} className="text-green-500" />;
+  if (isPdf(type)) return <FileType size={16} className="text-red-500" />;
+  if (isOfficeDoc(type, name))
+    return <FileType size={16} className="text-blue-600" />;
   return <FileText size={16} className="text-gray-500" />;
 }
 
@@ -79,46 +102,154 @@ function MediaPlayer({ attachment }: { attachment: TaskAttachment }) {
   const [playing, setPlaying] = useState(false);
   const ref = useRef<HTMLVideoElement & HTMLAudioElement>(null);
 
-  useEffect(() => { setPlaying(false); }, [attachment.id]);
+  useEffect(() => {
+    setPlaying(false);
+  }, [attachment.id]);
 
   function toggle() {
     if (!ref.current) return;
-    if (playing) { ref.current.pause(); setPlaying(false); }
-    else { ref.current.play(); setPlaying(true); }
+    if (playing) {
+      ref.current.pause();
+      setPlaying(false);
+    } else {
+      ref.current.play();
+      setPlaying(true);
+    }
   }
 
   if (isVideo(attachment.type)) {
     return (
-      <div className="relative mt-2 overflow-hidden rounded-lg bg-black">
+      <div className="mt-2 overflow-hidden rounded-lg bg-black">
         <video
-          ref={ref}
           src={attachment.url}
-          className="max-h-40 w-full object-contain"
-          onEnded={() => setPlaying(false)}
-          controls={false}
+          controls
+          className="max-h-60 w-full object-contain"
         />
-        <div className="group absolute inset-0 flex items-center justify-center">
-          <button
-            onClick={toggle}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm opacity-0 transition group-hover:opacity-100 hover:bg-black/70"
-          >
-            {playing ? <Pause size={18} /> : <Play size={18} />}
-          </button>
-        </div>
-        <video src={attachment.url} controls style={{ height: 32, width: "100%", marginTop: -2 }}
-          onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
       </div>
     );
   }
 
   if (isAudio(attachment.type)) {
     return (
-      <audio src={attachment.url} controls className="mt-2 w-full rounded-lg"
-        onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
+      <audio
+        src={attachment.url}
+        controls
+        className="mt-2 w-full rounded-lg"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
     );
   }
 
   return null;
+}
+
+// ── Text file inline preview ─────────────────────────────────────────────
+function TextPreview({ attachment }: { attachment: TaskAttachment }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    fetch(attachment.url)
+      .then((res) => {
+        if (!res.ok) throw new Error("fetch failed");
+        return res.text();
+      })
+      .then((text) => {
+        if (!cancelled) setContent(text.slice(0, 5000)); // cap preview size
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment.url]);
+
+  if (loading) {
+    return (
+      <div className="mt-2 flex items-center gap-2 rounded-lg bg-gray-100 p-3 text-xs text-gray-400">
+        <Loader2 size={12} className="animate-spin" />
+        Loading preview...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="mt-2 rounded-lg bg-gray-100 p-3 text-xs text-gray-400">
+        Preview load nahi hui, download karke dekho.
+      </p>
+    );
+  }
+
+  return (
+    <pre className="mt-2 max-h-52 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-gray-100">
+      {content}
+      {content &&
+        content.length >= 5000 &&
+        "\n\n… (truncated, download full file to view)"}
+    </pre>
+  );
+}
+
+// ── PDF inline preview ───────────────────────────────────────────────────
+function PdfPreview({ attachment }: { attachment: TaskAttachment }) {
+  return (
+    <iframe
+      src={attachment.url}
+      title={attachment.name}
+      className="mt-2 h-72 w-full rounded-lg border border-gray-200"
+    />
+  );
+}
+
+// Office doc preview via Google Docs Viewer
+// Supabase storage URLs are public — Google Docs Viewer works even from localhost
+function OfficePreview({ attachment }: { attachment: TaskAttachment }) {
+  const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(
+    attachment.url,
+  )}&embedded=true`;
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
+      {/* Header bar */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-3 py-2">
+        <span className="truncate text-xs font-medium text-gray-600">{attachment.name}</span>
+        <a
+          href={attachment.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-2 flex-shrink-0 rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          title="Open in new tab"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      </div>
+
+      {/* scrolling=no suppresses Google Docs Viewer's own scrollbars */}
+      <div style={{ overflow: "hidden", width: "100%" }}>
+        <iframe
+          src={viewerUrl}
+          title={attachment.name}
+          scrolling="no"
+          className="h-80 w-full"
+          style={{ minWidth: 0, display: "block", border: 0 }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function AttachmentItem({
@@ -130,6 +261,12 @@ function AttachmentItem({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  const previewable =
+    isImage(attachment.type) ||
+    isText(attachment.type, attachment.name) ||
+    isPdf(attachment.type) ||
+    isOfficeDoc(attachment.type, attachment.name);
+
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
       <div className="flex items-start gap-3">
@@ -137,20 +274,26 @@ function AttachmentItem({
           {isImage(attachment.type) ? (
             <button onClick={() => setExpanded((p) => !p)} className="block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={attachment.url} alt={attachment.name}
-                className="h-12 w-16 rounded object-cover" />
+              <img
+                src={attachment.url}
+                alt={attachment.name}
+                className="h-12 w-16 rounded object-cover"
+              />
             </button>
           ) : (
             <div className="flex h-12 w-16 items-center justify-center rounded bg-gray-100">
-              <AttachmentIcon type={attachment.type} />
+              <AttachmentIcon type={attachment.type} name={attachment.name} />
             </div>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-800">{attachment.name}</p>
+          <p className="truncate text-sm font-medium text-gray-800">
+            {attachment.name}
+          </p>
           <p className="mt-0.5 text-xs text-gray-400">
-            {formatBytes(attachment.size)} · Added {formatDate(attachment.addedAt)}
+            {formatBytes(attachment.size)} · Added{" "}
+            {formatDate(attachment.addedAt)}
           </p>
 
           {(isVideo(attachment.type) || isAudio(attachment.type)) && (
@@ -160,21 +303,50 @@ function AttachmentItem({
           {isImage(attachment.type) && expanded && (
             <div className="mt-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={attachment.url} alt={attachment.name}
-                className="max-h-64 w-full rounded-lg object-contain" />
+              <img
+                src={attachment.url}
+                alt={attachment.name}
+                className="max-h-64 w-full rounded-lg object-contain"
+              />
             </div>
+          )}
+
+          {isText(attachment.type, attachment.name) && expanded && (
+            <TextPreview attachment={attachment} />
+          )}
+
+          {isPdf(attachment.type) && expanded && (
+            <PdfPreview attachment={attachment} />
+          )}
+
+          {isOfficeDoc(attachment.type, attachment.name) && expanded && (
+            <OfficePreview attachment={attachment} />
           )}
         </div>
 
         <div className="flex flex-shrink-0 items-center gap-1">
-          <a href={attachment.url} download={attachment.name}
+          {previewable && !isImage(attachment.type) && (
+            <button
+              onClick={() => setExpanded((p) => !p)}
+              className="rounded p-1.5 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
+              title={expanded ? "Hide preview" : "View"}
+            >
+              {expanded ? <Eye size={14} /> : <EyeOff size={14} />}
+            </button>
+          )}
+          <a
+            href={attachment.url}
+            download={attachment.name}
             className="rounded p-1.5 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
-            title="Download">
+            title="Download"
+          >
             <Download size={14} />
           </a>
-          <button onClick={() => onRemove(attachment.id)}
+          <button
+            onClick={() => onRemove(attachment.id)}
             className="rounded p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500"
-            title="Remove">
+            title="Remove"
+          >
             <Trash2 size={14} />
           </button>
         </div>
@@ -192,13 +364,35 @@ export function TaskDetailModal({
   onAttachmentsChange,
 }: TaskDetailModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [attachments, setAttachments] = useState<TaskAttachment[]>(task.attachments ?? []);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>(
+    task.attachments ?? [],
+  );
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => { setAttachments(task.attachments ?? []); }, [task.id, task.attachments]);
+  useEffect(() => {
+    setAttachments(task.attachments ?? []);
+  }, [task.id, task.attachments]);
+
+  // Lock body scroll AND the Next.js <main> scroll container when modal is open
+  useEffect(() => {
+    const main = document.querySelector("main") as HTMLElement | null;
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      if (main) main.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+      if (main) main.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+      if (main) main.style.overflow = "";
+    };
+  }, [isOpen]);
 
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
     if (isOpen) document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
@@ -226,7 +420,9 @@ export function TaskDetailModal({
     setAttachments(updated);
     onAttachmentsChange(task.id, updated);
     if (att) {
-      try { await deleteAttachment(att.url); } catch {}
+      try {
+        await deleteAttachment(att.url);
+      } catch { }
     }
   }
 
@@ -235,16 +431,24 @@ export function TaskDetailModal({
   const coverImage = attachments.find((a) => isImage(a.type));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 py-8">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+    <>
+      {/* Backdrop — plain dark overlay, no blur to avoid color-bleed from sidebar */}
+      <div
+        className="fixed inset-0 z-50 bg-black/60"
+        onClick={onClose}
+      />
 
-      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+      {/* Scroll container — only THIS div scrolls, body + main are locked */}
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 py-8">
+        <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden my-auto">
         {/* Cover banner */}
         {coverImage && (
           <div className="relative h-44 w-full overflow-hidden bg-gray-200">
-            <img src={coverImage.url} alt="Cover"
-              className="h-full w-full object-cover" />
+            <img
+              src={coverImage.url}
+              alt="Cover"
+              className="h-full w-full object-cover"
+            />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
           </div>
         )}
@@ -269,10 +473,14 @@ export function TaskDetailModal({
 
             {/* Status + Priority badges */}
             <div className="mt-2 mb-5 flex flex-wrap gap-2">
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status]}`}>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status]}`}
+              >
                 {STATUS_LABELS[task.status]}
               </span>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}
+              >
                 {task.priority}
               </span>
             </div>
@@ -302,8 +510,10 @@ export function TaskDetailModal({
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {task.tags.map((tag) => (
-                    <span key={tag}
-                      className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">
+                    <span
+                      key={tag}
+                      className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                    >
                       {tag}
                     </span>
                   ))}
@@ -328,14 +538,18 @@ export function TaskDetailModal({
                   disabled={uploading}
                   className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
                 >
-                  {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                  {uploading ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Upload size={12} />
+                  )}
                   {uploading ? "Uploading..." : "Add"}
                 </button>
                 <input
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md"
                   className="hidden"
                   onChange={handleFileSelect}
                 />
@@ -369,14 +583,14 @@ export function TaskDetailModal({
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => onEdit(task)}
-                className="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700"
+                className="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 cursor-pointer"
               >
                 <Edit2 size={13} />
                 Edit Task
               </button>
               <button
                 onClick={() => onDelete(task)}
-                className="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+                className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-white transition bg-red-500 hover:bg-red-600 hover:border-red-200 cursor-pointer"
               >
                 <Trash2 size={13} />
                 Delete Task
@@ -392,7 +606,9 @@ export function TaskDetailModal({
                   <Calendar size={11} />
                   Due Date
                 </div>
-                <p className="text-sm text-gray-700">{formatDate(task.dueDate)}</p>
+                <p className="text-sm text-gray-700">
+                  {formatDate(task.dueDate)}
+                </p>
               </div>
             )}
 
@@ -411,11 +627,14 @@ export function TaskDetailModal({
               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Created
               </div>
-              <p className="text-xs text-gray-500">{formatDate(task.createdAt)}</p>
+              <p className="text-xs text-gray-500">
+                {formatDate(task.createdAt)}
+              </p>
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  </>
+);
 }

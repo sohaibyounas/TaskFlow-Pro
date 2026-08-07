@@ -1,6 +1,5 @@
-import type { Task, TaskAttachment, CreateTaskInput, UpdateTaskInput } from "@/types/task";
+import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task";
 
-// Database row ka shape — snake_case, Supabase se aisa hi aata hai
 export interface TaskRow {
   id: string;
   title: string;
@@ -10,14 +9,14 @@ export interface TaskRow {
   due_date: string | null;
   tags: string[];
   comments_count: number;
-  attachments: TaskAttachment[] | null;
   assignee_id: string | null;
   user_id: string;
   created_at: string;
   updated_at: string;
+  // Ye "joined" data hai — jab query mein profiles join karenge, ye field milega
+  assignee?: { id: string; username: string; avatar_url: string | null } | null;
 }
 
-// DB row → Frontend Task type (snake_case → camelCase)
 export function mapRowToTask(row: TaskRow): Task {
   return {
     id: row.id,
@@ -28,15 +27,19 @@ export function mapRowToTask(row: TaskRow): Task {
     dueDate: row.due_date,
     tags: row.tags,
     commentsCount: row.comments_count,
-    attachments: row.attachments ?? [],
-    assignee: null, // 🎯 abhi simplification — Step 2 mein profiles join se real object aayega
+    // Attachments are stored in Supabase storage — not a DB column.
+    // They are stored as JSON in the task record when saved via updateTask.
+    attachments: (row as unknown as { attachments?: import("@/types/task").TaskAttachment[] }).attachments ?? [],
+    // Agar joined assignee data mila hai, use karo — warna null
+    assignee: row.assignee
+      ? { id: Number(row.assignee.id) || 0, name: row.assignee.username, avatarUrl: row.assignee.avatar_url ?? "" }
+      : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-// Frontend CreateTaskInput → DB insert payload (camelCase → snake_case)
-export function mapCreateInputToRow(input: CreateTaskInput & { attachments?: import("@/types/task").TaskAttachment[] }, userId: string) {
+export function mapCreateInputToRow(input: CreateTaskInput, userId: string) {
   return {
     title: input.title,
     description: input.description,
@@ -44,12 +47,11 @@ export function mapCreateInputToRow(input: CreateTaskInput & { attachments?: imp
     priority: input.priority,
     due_date: input.dueDate,
     tags: input.tags,
-    attachments: input.attachments ?? [],
+    assignee_id: input.assigneeId, // naya
     user_id: userId,
   };
 }
 
-// Frontend UpdateTaskInput → DB update payload
 export function mapUpdateInputToRow(input: UpdateTaskInput) {
   const row: Record<string, unknown> = {};
   if (input.title !== undefined) row.title = input.title;
@@ -58,6 +60,6 @@ export function mapUpdateInputToRow(input: UpdateTaskInput) {
   if (input.priority !== undefined) row.priority = input.priority;
   if (input.dueDate !== undefined) row.due_date = input.dueDate;
   if (input.tags !== undefined) row.tags = input.tags;
-  if (input.attachments !== undefined) row.attachments = input.attachments;
+  if (input.assigneeId !== undefined) row.assignee_id = input.assigneeId; // 🎯 naya
   return row;
 }

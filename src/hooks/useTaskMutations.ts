@@ -28,14 +28,12 @@ export function useUpdateTask() {
       updateTask(id, input),
 
     onMutate: async ({ id, input }) => {
-      // Cancel any in-flight refetches for both query keys
       await queryClient.cancelQueries({ queryKey: taskKeys.all });
       await queryClient.cancelQueries({ queryKey: ["tasks", "infinite"] });
 
-      // Snapshot for rollback
       const previousTasks = queryClient.getQueryData<Task[]>(taskKeys.all);
 
-      // Optimistic update on the board cache
+      // Optimistic update — merge input into cached task
       queryClient.setQueryData<Task[]>(taskKeys.all, (old) =>
         old?.map((task) => (task.id === id ? { ...task, ...input } : task)),
       );
@@ -49,7 +47,16 @@ export function useUpdateTask() {
       }
     },
 
-    onSettled: () => invalidateAll(queryClient),
+    // Only invalidate if it's NOT an attachments-only update
+    // (attachment updates are already optimistic in cache; invalidating causes flicker)
+    onSettled: (_data, _err, variables) => {
+      const keys = Object.keys(variables.input) as (keyof UpdateTaskInput)[];
+      const isAttachmentsOnly =
+        keys.length === 1 && keys[0] === "attachments";
+      if (!isAttachmentsOnly) {
+        invalidateAll(queryClient);
+      }
+    },
   });
 }
 

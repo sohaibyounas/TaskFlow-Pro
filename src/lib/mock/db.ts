@@ -150,11 +150,13 @@ export const mockTaskDb = {
   async create(input: CreateTaskInput): Promise<Task> {
     await delay();
     const now = new Date().toISOString();
+    const { assigneeId, ...rest } = input;
     const newTask: Task = {
-      ...input,
+      ...rest,
       id: generateId(),
       commentsCount: 0,
       attachments: [],
+      assignee: null, // mock DB ignores assigneeId for now
       createdAt: now,
       updatedAt: now,
     };
