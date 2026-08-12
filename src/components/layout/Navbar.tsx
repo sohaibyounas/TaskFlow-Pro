@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -86,7 +86,7 @@ function LogoutConfirmModal({
   );
 }
 
-export function Navbar({ onMenuClick }: NavbarProps) {
+function NavbarContent({ onMenuClick }: NavbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -286,6 +286,46 @@ export function Navbar({ onMenuClick }: NavbarProps) {
         onCancel={() => setShowConfirm(false)}
       />
     </>
+  );
+}
+
+export function Navbar(props: NavbarProps) {
+  return (
+    <Suspense
+      fallback={
+        <header className="relative flex h-16 flex-shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 sm:px-6">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              onClick={props.onMenuClick}
+              className="rounded-xl p-1.5 sm:p-2 text-slate-600 hover:bg-slate-100 md:hidden transition flex-shrink-0"
+              aria-label="Open navigation menu"
+            >
+              <Menu size={20} />
+            </button>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 md:hidden min-w-0">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white flex-shrink-0">
+                <Kanban size={16} />
+              </div>
+              <span className="text-sm sm:text-base font-bold text-slate-900 tracking-tight whitespace-nowrap truncate">
+                TaskFlow Pro
+              </span>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-1.5 min-w-[220px] md:min-w-[300px]">
+              <Search size={16} className="text-slate-400 flex-shrink-0" />
+              <div className="h-4 w-32 bg-slate-200 animate-pulse rounded" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-slate-200 animate-pulse" />
+          </div>
+        </header>
+      }
+    >
+      <NavbarContent {...props} />
+    </Suspense>
   );
 }
 
