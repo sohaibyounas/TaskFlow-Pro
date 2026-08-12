@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   X,
   Paperclip,
@@ -15,8 +16,6 @@ import {
   Tag,
   AlignLeft,
   Upload,
-  Play,
-  Pause,
   Loader2,
   Eye,
   EyeOff,
@@ -99,28 +98,11 @@ function AttachmentIcon({ type, name }: { type: string; name: string }) {
 }
 
 function MediaPlayer({ attachment }: { attachment: TaskAttachment }) {
-  const [playing, setPlaying] = useState(false);
-  const ref = useRef<HTMLVideoElement & HTMLAudioElement>(null);
-
-  useEffect(() => {
-    setPlaying(false);
-  }, [attachment.id]);
-
-  function toggle() {
-    if (!ref.current) return;
-    if (playing) {
-      ref.current.pause();
-      setPlaying(false);
-    } else {
-      ref.current.play();
-      setPlaying(true);
-    }
-  }
-
   if (isVideo(attachment.type)) {
     return (
       <div className="mt-2 overflow-hidden rounded-lg bg-black">
         <video
+          key={attachment.id}
           src={attachment.url}
           controls
           className="max-h-60 w-full object-contain"
@@ -132,11 +114,10 @@ function MediaPlayer({ attachment }: { attachment: TaskAttachment }) {
   if (isAudio(attachment.type)) {
     return (
       <audio
+        key={attachment.id}
         src={attachment.url}
         controls
         className="mt-2 w-full rounded-lg"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
       />
     );
   }
@@ -147,27 +128,29 @@ function MediaPlayer({ attachment }: { attachment: TaskAttachment }) {
 // ── Text file inline preview ─────────────────────────────────────────────
 function TextPreview({ attachment }: { attachment: TaskAttachment }) {
   const [content, setContent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(false);
     fetch(attachment.url)
       .then((res) => {
         if (!res.ok) throw new Error("fetch failed");
         return res.text();
       })
       .then((text) => {
-        if (!cancelled) setContent(text.slice(0, 5000)); // cap preview size
+        if (!cancelled) {
+          setContent(text.slice(0, 5000));
+          setLoading(false);
+        }
       })
       .catch(() => {
-        if (!cancelled) setError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(true);
+          setLoading(false);
+        }
       });
+
     return () => {
       cancelled = true;
     };
@@ -231,9 +214,9 @@ function OfficePreview({ attachment }: { attachment: TaskAttachment }) {
           title="Open in new tab"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
         </a>
       </div>
@@ -368,10 +351,12 @@ export function TaskDetailModal({
     task.attachments ?? [],
   );
   const [uploading, setUploading] = useState(false);
+  const [prevTask, setPrevTask] = useState(task);
 
-  useEffect(() => {
+  if (task !== prevTask) {
+    setPrevTask(task);
     setAttachments(task.attachments ?? []);
-  }, [task.id, task.attachments]);
+  }
 
   // Lock body scroll AND the Next.js <main> scroll container when modal is open
   useEffect(() => {
@@ -441,200 +426,202 @@ export function TaskDetailModal({
       {/* Scroll container — only THIS div scrolls, body + main are locked */}
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 py-8">
         <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden my-auto">
-        {/* Cover banner */}
-        {coverImage && (
-          <div className="relative h-44 w-full overflow-hidden bg-gray-200">
-            <img
-              src={coverImage.url}
-              alt="Cover"
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
-          </div>
-        )}
-
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute right-0 top-0.5 z-10 rounded-full bg-white/80 p-1 text-gray-500 backdrop-blur-sm transition hover:bg-white hover:text-gray-800"
-          aria-label="Close"
-        >
-          <X size={16} />
-        </button>
-
-        {/* ── Two-column body ── */}
-        <div className="flex flex-col sm:flex-row">
-          {/* LEFT — main content */}
-          <div className="flex-1 min-w-0 p-6">
-            {/* Title */}
-            <h2 className="text-xl font-bold leading-snug text-gray-900 pr-8">
-              {task.title}
-            </h2>
-
-            {/* Status + Priority badges */}
-            <div className="mt-2 mb-5 flex flex-wrap gap-2">
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status]}`}
-              >
-                {STATUS_LABELS[task.status]}
-              </span>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}
-              >
-                {task.priority}
-              </span>
+          {/* Cover banner */}
+          {coverImage && (
+            <div className="relative h-44 w-full overflow-hidden bg-gray-200">
+              <Image
+                src={coverImage.url}
+                alt="Cover"
+                fill
+                className="object-cover"
+                unoptimized
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
             </div>
+          )}
 
-            {/* Description */}
-            <section className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                <AlignLeft size={13} />
-                Description
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute right-0 top-0.5 z-10 rounded-full bg-white/80 p-1 text-gray-500 backdrop-blur-sm transition hover:bg-white hover:text-gray-800"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+
+          {/* ── Two-column body ── */}
+          <div className="flex flex-col sm:flex-row">
+            {/* LEFT — main content */}
+            <div className="flex-1 min-w-0 p-6">
+              {/* Title */}
+              <h2 className="text-xl font-bold leading-snug text-gray-900 pr-8">
+                {task.title}
+              </h2>
+
+              {/* Status + Priority badges */}
+              <div className="mt-2 mb-5 flex flex-wrap gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status]}`}
+                >
+                  {STATUS_LABELS[task.status]}
+                </span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}
+                >
+                  {task.priority}
+                </span>
               </div>
-              {task.description ? (
-                <div
-                  className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700"
-                  dangerouslySetInnerHTML={{ __html: task.description }}
-                />
-              ) : (
-                <p className="italic text-sm text-gray-400">No description</p>
-              )}
-            </section>
 
-            {/* Tags */}
-            {task.tags && task.tags.length > 0 && (
+              {/* Description */}
               <section className="mb-5">
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  <Tag size={13} />
-                  Tags
+                  <AlignLeft size={13} />
+                  Description
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {task.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                {task.description ? (
+                  <div
+                    className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700"
+                    dangerouslySetInnerHTML={{ __html: task.description }}
+                  />
+                ) : (
+                  <p className="italic text-sm text-gray-400">No description</p>
+                )}
               </section>
-            )}
 
-            {/* Attachments */}
-            <section>
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  <Paperclip size={13} />
-                  Attachments
-                  {attachments.length > 0 && (
-                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-600">
-                      {attachments.length}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
-                >
-                  {uploading ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <Upload size={12} />
-                  )}
-                  {uploading ? "Uploading..." : "Add"}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-              </div>
-
-              {attachments.length === 0 ? (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-6 text-sm text-gray-400 transition hover:border-gray-300 hover:text-gray-500"
-                >
-                  <Paperclip size={16} />
-                  Click to attach files, images, or videos
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  {attachments.map((att) => (
-                    <AttachmentItem
-                      key={att.id}
-                      attachment={att}
-                      onRemove={handleRemoveAttachment}
-                    />
-                  ))}
-                </div>
+              {/* Tags */}
+              {task.tags && task.tags.length > 0 && (
+                <section className="mb-5">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <Tag size={13} />
+                    Tags
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {task.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </section>
               )}
-            </section>
-          </div>
 
-          {/* RIGHT — sidebar meta + actions */}
-          <div className="w-full sm:w-52 flex-shrink-0 border-t sm:border-t-0 sm:border-l border-gray-100 bg-gray-50/60 p-5 flex flex-col gap-4">
-            {/* Actions */}
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => onEdit(task)}
-                className="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 cursor-pointer"
-              >
-                <Edit2 size={13} />
-                Edit Task
-              </button>
-              <button
-                onClick={() => onDelete(task)}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-white transition bg-red-500 hover:bg-red-600 hover:border-red-200 cursor-pointer"
-              >
-                <Trash2 size={13} />
-                Delete Task
-              </button>
+              {/* Attachments */}
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <Paperclip size={13} />
+                    Attachments
+                    {attachments.length > 0 && (
+                      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-600">
+                        {attachments.length}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    {uploading ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Upload size={12} />
+                    )}
+                    {uploading ? "Uploading..." : "Add"}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                </div>
+
+                {attachments.length === 0 ? (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-6 text-sm text-gray-400 transition hover:border-gray-300 hover:text-gray-500"
+                  >
+                    <Paperclip size={16} />
+                    Click to attach files, images, or videos
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    {attachments.map((att) => (
+                      <AttachmentItem
+                        key={att.id}
+                        attachment={att}
+                        onRemove={handleRemoveAttachment}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
 
-            <div className="h-px bg-gray-200" />
-
-            {/* Due Date */}
-            {task.dueDate && (
-              <div>
-                <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  <Calendar size={11} />
-                  Due Date
-                </div>
-                <p className="text-sm text-gray-700">
-                  {formatDate(task.dueDate)}
-                </p>
+            {/* RIGHT — sidebar meta + actions */}
+            <div className="w-full sm:w-52 flex-shrink-0 border-t sm:border-t-0 sm:border-l border-gray-100 bg-gray-50/60 p-5 flex flex-col gap-4">
+              {/* Actions */}
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => onEdit(task)}
+                  className="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 cursor-pointer"
+                >
+                  <Edit2 size={13} />
+                  Edit Task
+                </button>
+                <button
+                  onClick={() => onDelete(task)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-white transition bg-red-500 hover:bg-red-600 hover:border-red-200 cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  Delete Task
+                </button>
               </div>
-            )}
 
-            {/* Assignee */}
-            {task.assignee && (
+              <div className="h-px bg-gray-200" />
+
+              {/* Due Date */}
+              {task.dueDate && (
+                <div>
+                  <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <Calendar size={11} />
+                    Due Date
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {formatDate(task.dueDate)}
+                  </p>
+                </div>
+              )}
+
+              {/* Assignee */}
+              {task.assignee && (
+                <div>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Assignee
+                  </div>
+                  <p className="text-sm text-gray-700">{task.assignee.name}</p>
+                </div>
+              )}
+
+              {/* Created */}
               <div>
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Assignee
+                  Created
                 </div>
-                <p className="text-sm text-gray-700">{task.assignee.name}</p>
+                <p className="text-xs text-gray-500">
+                  {formatDate(task.createdAt)}
+                </p>
               </div>
-            )}
-
-            {/* Created */}
-            <div>
-              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Created
-              </div>
-              <p className="text-xs text-gray-500">
-                {formatDate(task.createdAt)}
-              </p>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </>
-);
+    </>
+  );
 }

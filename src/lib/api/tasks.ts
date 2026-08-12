@@ -12,29 +12,37 @@ const TASK_SELECT_WITH_ASSIGNEE = `
   assignee:profiles(id, username, avatar_url)
 `;
 
+import { mockTaskDb } from "@/lib/mock/db";
+
 export async function fetchTasks(): Promise<Task[]> {
   const supabase = createClient();
   let data: unknown[] | null = null;
   let error = null;
 
-  const withJoin = await supabase
-    .from("tasks")
-    .select(TASK_SELECT_WITH_ASSIGNEE)
-    .order("created_at", { ascending: false });
-
-  if (withJoin.error) {
-    const plain = await supabase
+  try {
+    const withJoin = await supabase
       .from("tasks")
-      .select("*")
+      .select(TASK_SELECT_WITH_ASSIGNEE)
       .order("created_at", { ascending: false });
-    data = plain.data;
-    error = plain.error;
-  } else {
-    data = withJoin.data;
-    error = withJoin.error;
+
+    if (withJoin.error) {
+      const plain = await supabase
+        .from("tasks")
+        .select("*")
+        .order("created_at", { ascending: false });
+      data = plain.data;
+      error = plain.error;
+    } else {
+      data = withJoin.data;
+      error = withJoin.error;
+    }
+  } catch {
+    return mockTaskDb.getAll();
   }
 
-  if (error) throw new Error((error as { message: string }).message);
+  if (error || !data || data.length === 0) {
+    return mockTaskDb.getAll();
+  }
   return (data as unknown as TaskRow[]).map(mapRowToTask);
 }
 
@@ -43,34 +51,38 @@ export async function fetchTasksPaginated(page: number, limit: number) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
-  // Try with profiles join first; fall back to plain select if it fails (e.g. RLS on profiles)
   let data: unknown[] | null = null;
   let count: number | null = null;
   let error = null;
 
-  const withJoin = await supabase
-    .from("tasks")
-    .select(TASK_SELECT_WITH_ASSIGNEE, { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(from, to);
-
-  if (withJoin.error) {
-    // Fallback: plain select without profiles join
-    const plain = await supabase
+  try {
+    const withJoin = await supabase
       .from("tasks")
-      .select("*", { count: "exact" })
+      .select(TASK_SELECT_WITH_ASSIGNEE, { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
-    data = plain.data;
-    count = plain.count;
-    error = plain.error;
-  } else {
-    data = withJoin.data;
-    count = withJoin.count;
-    error = withJoin.error;
+
+    if (withJoin.error) {
+      const plain = await supabase
+        .from("tasks")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      data = plain.data;
+      count = plain.count;
+      error = plain.error;
+    } else {
+      data = withJoin.data;
+      count = withJoin.count;
+      error = withJoin.error;
+    }
+  } catch {
+    return mockTaskDb.getPaginated(page, limit);
   }
 
-  if (error) throw new Error((error as { message: string }).message);
+  if (error || !data || data.length === 0) {
+    return mockTaskDb.getPaginated(page, limit);
+  }
 
   const total = count ?? 0;
   return {

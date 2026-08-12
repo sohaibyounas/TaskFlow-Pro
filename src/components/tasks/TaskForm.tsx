@@ -133,8 +133,12 @@ export function TaskForm({ onSuccess, task, onAttachmentsReady }: TaskFormProps)
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [prevTask, setPrevTask] = useState(task);
 
-  useEffect(() => { setAttachments(task?.attachments ?? []); }, [task?.id]);
+  if (task !== prevTask) {
+    setPrevTask(task);
+    setAttachments(task?.attachments ?? []);
+  }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -164,7 +168,7 @@ export function TaskForm({ onSuccess, task, onAttachmentsReady }: TaskFormProps)
 
   const { register, control, handleSubmit, reset, formState: { errors } } =
     useForm<TaskFormValues>({
-      resolver: zodResolver(taskFormSchema) as any,
+      resolver: zodResolver(taskFormSchema) as never,
       defaultValues: task
         ? {
           title: task.title, description: task.description, status: task.status,
@@ -187,7 +191,7 @@ export function TaskForm({ onSuccess, task, onAttachmentsReady }: TaskFormProps)
         dueDate: task.dueDate, tags: task.tags ?? []
       });
     }
-  }, [task?.id]);
+  }, [task, reset]);
 
   const onSubmit: SubmitHandler<TaskFormValues> = (values) => {
     const handleDone = () => { onAttachmentsReady?.(attachments); onSuccess?.(); };
