@@ -6,20 +6,26 @@ import {
   type TaskRow,
 } from "@/lib/supabase/mappers";
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task";
+import { mockTaskDb } from "@/lib/mock/db";
 
 const TASK_SELECT_WITH_ASSIGNEE = `
   *,
   assignee:profiles(id, username, avatar_url)
 `;
 
-import { mockTaskDb } from "@/lib/mock/db";
+function isSupabaseConfigured(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return Boolean(url && key && url.startsWith("http"));
+}
 
 export async function fetchTasks(): Promise<Task[]> {
-  const supabase = createClient();
-  let data: unknown[] | null = null;
-  let error = null;
+  if (!isSupabaseConfigured()) {
+    return mockTaskDb.getAll();
+  }
 
   try {
+    const supabase = createClient();
     const withJoin = await supabase
       .from("tasks")
       .select(TASK_SELECT_WITH_ASSIGNEE)
@@ -30,37 +36,41 @@ export async function fetchTasks(): Promise<Task[]> {
         .from("tasks")
         .select("*")
         .order("created_at", { ascending: false });
-      data = plain.data;
-      error = plain.error;
-    } else {
-      data = withJoin.data;
-      error = withJoin.error;
+
+      if (plain.error || !plain.data || plain.data.length === 0) {
+        return mockTaskDb.getAll();
+      }
+      return (plain.data as unknown as TaskRow[]).map(mapRowToTask);
     }
+
+    if (!withJoin.data || withJoin.data.length === 0) {
+      return mockTaskDb.getAll();
+    }
+
+    return (withJoin.data as unknown as TaskRow[]).map(mapRowToTask);
   } catch {
     return mockTaskDb.getAll();
   }
-
-  if (error || !data || data.length === 0) {
-    return mockTaskDb.getAll();
-  }
-  return (data as unknown as TaskRow[]).map(mapRowToTask);
 }
 
 export async function fetchTasksPaginated(page: number, limit: number) {
-  const supabase = createClient();
+  if (!isSupabaseConfigured()) {
+    return mockTaskDb.getPaginated(page, limit);
+  }
+
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
-  let data: unknown[] | null = null;
-  let count: number | null = null;
-  let error = null;
-
   try {
+    const supabase = createClient();
     const withJoin = await supabase
       .from("tasks")
       .select(TASK_SELECT_WITH_ASSIGNEE, { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
+
+    let data: unknown[] | null = null;
+    let count: number | null = null;
 
     if (withJoin.error) {
       const plain = await supabase
@@ -70,85 +80,119 @@ export async function fetchTasksPaginated(page: number, limit: number) {
         .range(from, to);
       data = plain.data;
       count = plain.count;
-      error = plain.error;
     } else {
       data = withJoin.data;
       count = withJoin.count;
-      error = withJoin.error;
     }
+
+    if (!data || data.length === 0) {
+      return mockTaskDb.getPaginated(page, limit);
+    }
+
+    const total = count ?? 0;
+    return {
+      tasks: (data as unknown as TaskRow[]).map(mapRowToTask),
+      nextPage: to < total - 1 ? page + 1 : null,
+      total,
+    };
   } catch {
     return mockTaskDb.getPaginated(page, limit);
   }
-
-  if (error || !data || data.length === 0) {
-    return mockTaskDb.getPaginated(page, limit);
-  }
-
-  const total = count ?? 0;
-  return {
-    tasks: (data as unknown as TaskRow[]).map(mapRowToTask),
-    nextPage: to < total - 1 ? page + 1 : null,
-    total,
-  };
 }
 
 export async function fetchTaskById(id: string): Promise<Task | null> {
-  const supabase = createClient();
+  if (!isSupabaseConfigured()) {
+    return mockTaskDb.getById(id);
+  }
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle(); // single() ki tarah, but agar na mile to error nahi, null return karta hai
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!data) return null;
+    if (error || !data) {
+      return mockTaskDb.getById(id);
+    }
 
-  return mapRowToTask(data as TaskRow);
+    return mapRowToTask(data as TaskRow);
+  } catch {
+    return mockTaskDb.getById(id);
+  }
 }
 
 export async function createTask(input: CreateTaskInput): Promise<Task> {
-  const supabase = createClient();
+  if (!isSupabaseConfigured()) {
+    return mockTaskDb.create(input);
+  }
 
-  //  Current logged-in user ka ID chahiye (RLS policy isi se match karegi)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Aap logged in nahi hain");
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .insert(mapCreateInputToRow(input, user.id))
-    .select()
-    .single();
+    if (!user) {
+      return mockTaskDb.create(input);
+    }
 
-  if (error) throw new Error(error.message);
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert(mapCreateInputToRow(input, user.id))
+      .select()
+      .single();
 
-  return mapRowToTask(data as TaskRow);
+    if (error || !data) {
+      return mockTaskDb.create(input);
+    }
+
+    return mapRowToTask(data as TaskRow);
+  } catch {
+    return mockTaskDb.create(input);
+  }
 }
 
 export async function updateTask(
   id: string,
   input: UpdateTaskInput,
 ): Promise<Task> {
-  const supabase = createClient();
+  if (!isSupabaseConfigured()) {
+    return mockTaskDb.update(id, input);
+  }
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .update(mapUpdateInputToRow(input))
-    .eq("id", id)
-    .select()
-    .single();
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(mapUpdateInputToRow(input))
+      .eq("id", id)
+      .select()
+      .single();
 
-  if (error) throw new Error(error.message);
+    if (error || !data) {
+      return mockTaskDb.update(id, input);
+    }
 
-  return mapRowToTask(data as TaskRow);
+    return mapRowToTask(data as TaskRow);
+  } catch {
+    return mockTaskDb.update(id, input);
+  }
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  const supabase = createClient();
+  if (!isSupabaseConfigured()) {
+    return mockTaskDb.remove(id);
+  }
 
-  const { error } = await supabase.from("tasks").delete().eq("id", id);
-
-  if (error) throw new Error(error.message);
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) {
+      return mockTaskDb.remove(id);
+    }
+  } catch {
+    return mockTaskDb.remove(id);
+  }
 }

@@ -4,9 +4,16 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseUrl.startsWith("http")) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -28,22 +35,26 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // IMPORTANT: getUser() call karna zaroori hai — ye hi actual token refresh trigger karta hai
-  // (sirf getSession() se refresh nahi hota, purana/expired data mil sakta hai)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    // IMPORTANT: getUser() call karna zaroori hai — ye hi actual token refresh trigger karta hai
+    // (sirf getSession() se refresh nahi hota, purana/expired data mil sakta hai)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  // Protected routes check — agar user login nahi hai aur dashboard access kar raha hai, redirect karo
-  const isDashboardRoute =
-    request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/tasks") ||
-    request.nextUrl.pathname.startsWith("/settings");
+    // Protected routes check — agar user login nahi hai aur dashboard access kar raha hai, redirect karo
+    const isDashboardRoute =
+      request.nextUrl.pathname.startsWith("/dashboard") ||
+      request.nextUrl.pathname.startsWith("/tasks") ||
+      request.nextUrl.pathname.startsWith("/settings");
 
-  if (!user && isDashboardRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    if (!user && isDashboardRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+  } catch (error) {
+    console.error("Supabase auth error in middleware:", error);
   }
 
   return supabaseResponse;

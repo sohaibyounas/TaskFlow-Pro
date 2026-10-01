@@ -96,8 +96,16 @@ function NavbarContent({ onMenuClick }: NavbarProps) {
 
   async function handleConfirmLogout() {
     setIsLoggingOut(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (url && key && url.startsWith("http")) {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+      }
+    } catch {
+      // Ignore error when in mock mode
+    }
     router.refresh();
     router.push("/login");
   }
