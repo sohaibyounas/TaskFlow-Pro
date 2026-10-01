@@ -94,6 +94,53 @@ function NavbarContent({ onMenuClick }: NavbarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") ?? "");
 
+  const [currentUser, setCurrentUser] = useState<{
+    name: string;
+    initials: string;
+    role: string;
+  }>({
+    name: "Sohaib Younas",
+    initials: "SY",
+    role: "Workspace Admin",
+  });
+
+  useState(() => {
+    async function checkUser() {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (url && key && url.startsWith("http")) {
+          const supabase = createClient();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user) {
+            const name =
+              user.user_metadata?.username ||
+              user.user_metadata?.full_name ||
+              user.email?.split("@")[0] ||
+              "User";
+            const initials = name
+              .split(" ")
+              .filter(Boolean)
+              .map((w: string) => w[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2);
+            setCurrentUser({
+              name,
+              initials: initials || "U",
+              role: "Workspace Member",
+            });
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    checkUser();
+  });
+
   async function handleConfirmLogout() {
     setIsLoggingOut(true);
     try {
@@ -264,14 +311,14 @@ function NavbarContent({ onMenuClick }: NavbarProps) {
           {/* User Profile Info */}
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-xs ring-2 ring-blue-100 flex-shrink-0">
-              SY
+              {currentUser.initials}
             </div>
             <div className="hidden md:block text-left">
               <p className="text-xs font-bold text-slate-900 leading-none">
-                Sohaib Younas
+                {currentUser.name}
               </p>
               <p className="text-[11px] font-medium text-slate-400 mt-0.5">
-                Workspace Admin
+                {currentUser.role}
               </p>
             </div>
           </div>

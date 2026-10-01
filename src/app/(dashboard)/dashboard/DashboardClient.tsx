@@ -18,6 +18,7 @@ import {
 
 interface DashboardClientProps {
   tasks: Task[];
+  userName?: string;
 }
 
 import type { Variants } from "framer-motion";
@@ -41,7 +42,7 @@ const itemVariants: Variants = {
   },
 };
 
-export function DashboardClient({ tasks }: DashboardClientProps) {
+export function DashboardClient({ tasks, userName = "Workspace Member" }: DashboardClientProps) {
   const completed = tasks.filter((t) => t.status === "done").length;
   const inProgress = tasks.filter((t) => t.status === "in-progress").length;
   const review = tasks.filter((t) => t.status === "review").length;
@@ -72,18 +73,24 @@ export function DashboardClient({ tasks }: DashboardClientProps) {
               Trello Workspace Dashboard
             </div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">
-              Welcome back, Sohaib!
+              Welcome back, {userName}!
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-blue-100/90 max-w-xl">
-              You have{" "}
-              <span className="font-bold text-white">
-                {inProgress} tasks
-              </span>{" "}
-              in progress and{" "}
-              <span className="font-bold text-white">
-                {urgentCount} high priority
-              </span>{" "}
-              items requiring attention today.
+              {total === 0 ? (
+                "You don't have any workspace cards yet. Start organizing by creating your first task on the Kanban board."
+              ) : (
+                <>
+                  You have{" "}
+                  <span className="font-bold text-white">
+                    {inProgress} tasks
+                  </span>{" "}
+                  in progress and{" "}
+                  <span className="font-bold text-white">
+                    {urgentCount} high priority
+                  </span>{" "}
+                  items requiring attention today.
+                </>
+              )}
             </p>
           </div>
 
@@ -336,43 +343,62 @@ export function DashboardClient({ tasks }: DashboardClientProps) {
             </div>
 
             <div className="space-y-3">
-              {recentTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="group flex items-start justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-white hover:border-slate-200 hover:shadow-xs transition"
-                >
-                  <div className="min-w-0 flex-1 pr-2">
-                    <p className="truncate text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                      {task.title}
-                    </p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <span className="rounded-md bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
-                        {task.status}
-                      </span>
-                      {task.priority === "urgent" ||
-                      task.priority === "high" ? (
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600">
-                          <AlertTriangle size={10} />
-                          {task.priority}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">
-                          {task.priority}
-                        </span>
-                      )}
-                    </div>
+              {recentTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mb-2">
+                    <ListTodo size={22} />
                   </div>
-
-                  {task.assignee && (
-                    <div
-                      className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
-                      title={task.assignee.name}
-                    >
-                      {task.assignee.name.charAt(0)}
-                    </div>
-                  )}
+                  <p className="text-xs font-bold text-slate-800">No cards yet</p>
+                  <p className="mt-1 text-[11px] text-slate-400 max-w-[200px]">
+                    Your workspace is clean. Create cards on the board to track progress.
+                  </p>
+                  <Link
+                    href="/tasks/board"
+                    className="mt-3.5 inline-flex items-center gap-1 rounded-xl bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-100 transition"
+                  >
+                    <span>Open Board</span>
+                    <ArrowRight size={13} />
+                  </Link>
                 </div>
-              ))}
+              ) : (
+                recentTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="group flex items-start justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-white hover:border-slate-200 hover:shadow-xs transition"
+                  >
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="truncate text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
+                        {task.title}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="rounded-md bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                          {task.status}
+                        </span>
+                        {task.priority === "urgent" ||
+                        task.priority === "high" ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600">
+                            <AlertTriangle size={10} />
+                            {task.priority}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">
+                            {task.priority}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {task.assignee && (
+                      <div
+                        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
+                        title={task.assignee.name}
+                      >
+                        {task.assignee.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
